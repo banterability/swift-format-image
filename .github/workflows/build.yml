@@ -7,10 +7,13 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   packages: write
   id-token: write
   attestations: write
+
+concurrency:
+  group: build
 
 env:
   IMAGE: ghcr.io/${{ github.repository_owner }}/swift-format
@@ -50,3 +53,19 @@ jobs:
           subject-name: ${{ env.IMAGE }}
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
+      - run: |
+          sed -i "s|swift-format@sha256:[0-9a-f]*|swift-format@$DIGEST|" action.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          if ! git diff --quiet -- action.yml; then
+            git commit --all --message "Pin the action to the swift-format $SWIFT_FORMAT image" --message "$IMAGE@$DIGEST"
+            git push
+          fi
+          if ! git ls-remote --exit-code --tags origin "refs/tags/v$SWIFT" > /dev/null; then
+            git tag "v$SWIFT"
+            git push origin "v$SWIFT"
+          fi
+        env:
+          SWIFT: ${{ steps.versions.outputs.swift }}
+          SWIFT_FORMAT: ${{ steps.versions.outputs.swift_format }}
+          DIGEST: ${{ steps.push.outputs.digest }}

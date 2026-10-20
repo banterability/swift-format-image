@@ -1,0 +1,17 @@
+name: swift-format lint
+description: Lint Swift sources with a pinned swift-format release
+inputs:
+  paths:
+    description: Files and directories to lint, separated by spaces
+    required: true
+runs:
+  using: composite
+  steps:
+    # The Build workflow rewrites the digest after each push.
+    - run: |
+        image=ghcr.io/banterability/swift-format@sha256:04def9a308aa800b5c473865cb6a68ec65a0fe0d4106ded10ffcaab87a7a2f1c
+        docker run --rm "$image" --version
+        docker run --rm --network none --volume "$PWD:/work:ro" --workdir /work "$image" lint --recursive --strict $PATHS
+      shell: sh
+      env:
+        PATHS: ${{ inputs.paths }}
