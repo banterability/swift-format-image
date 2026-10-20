@@ -9,7 +9,7 @@ runs:
   steps:
     # The Build workflow rewrites the digest after each push.
     - run: |
-        image=ghcr.io/banterability/swift-format@sha256:04def9a308aa800b5c473865cb6a68ec65a0fe0d4106ded10ffcaab87a7a2f1c
+        image=ghcr.io/banterability/swift-format@sha256:6d7f8ee8131b8edadfb87234196809a8431022971a58d54dbdacc6ff6054a71c
         docker run --rm "$image" --version
         docker run --rm --network none --volume "$PWD:/work:ro" --workdir /work "$image" lint --recursive --strict $PATHS
       shell: sh
