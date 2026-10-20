@@ -1,0 +1,52 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    paths: [Dockerfile]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+  attestations: write
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/swift-format
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - id: versions
+        run: |
+          echo "swift=$(sed -nE 's/^FROM swift:([0-9]+\.[0-9]+)-[a-z]+@.*/\1/p' Dockerfile)" | tee -a "$GITHUB_OUTPUT"
+          echo "swift_format=$(sed -nE 's/^ARG VERSION=(.*)/\1/p' Dockerfile)" | tee -a "$GITHUB_OUTPUT"
+      - run: echo "$GITHUB_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - run: docker build --progress plain --tag "$IMAGE:$SWIFT" --tag "$IMAGE:$SWIFT_FORMAT" .
+        env:
+          SWIFT: ${{ steps.versions.outputs.swift }}
+          SWIFT_FORMAT: ${{ steps.versions.outputs.swift_format }}
+      - run: test "$(docker run --rm "$IMAGE:$SWIFT" --version)" = "$SWIFT_FORMAT"
+        env:
+          SWIFT: ${{ steps.versions.outputs.swift }}
+          SWIFT_FORMAT: ${{ steps.versions.outputs.swift_format }}
+      - id: push
+        run: |
+          docker push "$IMAGE:$SWIFT_FORMAT"
+          docker push "$IMAGE:$SWIFT" | tee push.log
+          digest=$(sed -n 's/.*digest: \(sha256:[0-9a-f]*\).*/\1/p' push.log)
+          echo "digest=$digest" | tee -a "$GITHUB_OUTPUT"
+          printf 'Pin consumers to\n\n    %s:%s@%s\n' "$IMAGE" "$SWIFT" "$digest" >> "$GITHUB_STEP_SUMMARY"
+        env:
+          SWIFT: ${{ steps.versions.outputs.swift }}
+          SWIFT_FORMAT: ${{ steps.versions.outputs.swift_format }}
+      - uses: actions/attest-build-provenance@v4
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
