@@ -6,7 +6,7 @@ The Dockerfile builds `swift-format` from its release tarball with the official 
 
 ## Using it
 
-The action lints the paths you give it with `--recursive --strict`, running the image with no network and a read-only checkout. Pin it to a release tag's commit; there's one per Swift minor, such as `v6.4`, and each points at an image built from that release's swift-format.
+The action lints the paths you give it with `--recursive --strict`, running the image with no network and a read-only checkout. Pin it to a release tag; there's one per swift-format release, named after it, such as `604.0.0`. swift-format numbers its releases after the Swift release they ship with, so `604.x.y` is Swift 6.4. Releases are immutable, so a tag can't move once it's published.
 
 ```yaml
 jobs:
@@ -14,14 +14,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: banterability/swift-format-image@<sha> # v6.4
+      - uses: banterability/swift-format-image@604.0.0
         with:
           paths: Sources Tests
 ```
 
-Dependabot's `github-actions` ecosystem bumps that line when a new tag appears, so a consumer with Dependabot gets a pull request for each Swift release. If the new release flags something, push the reformat to that branch.
+Dependabot's `github-actions` ecosystem bumps that line when a new tag appears, so a consumer with Dependabot gets a pull request for each swift-format release. If the new release flags something, push the reformat to that branch.
 
-The image itself is at `ghcr.io/banterability/swift-format`, tagged with the Swift release and the swift-format release it matches, such as `6.4` and `604.0.0`, and can be used directly as a job `container:`. Pin by digest; the Build workflow's job summary prints the line to use. `actions/checkout` works without git in the image by downloading the commit as a tarball, so the checkout has no `.git` directory.
+The image itself is at `ghcr.io/banterability/swift-format`, tagged with the swift-format release, such as `604.0.0`, and can be used directly as a job `container:`. Pin by digest; the Build workflow's job summary prints the line to use. `actions/checkout` works without git in the image by downloading the commit as a tarball, so the checkout has no `.git` directory.
 
 Each image carries a build provenance attestation:
 
@@ -29,16 +29,16 @@ Each image carries a build provenance attestation:
 gh attestation verify oci://ghcr.io/banterability/swift-format@sha256:… --owner banterability
 ```
 
-## Moving to a new Swift release
+## Moving to a new swift-format release
 
-Run the Bump Swift workflow with the Swift version, such as `6.5`, or run the same script locally:
+Run the Bump swift-format workflow with the release, such as `605.0.0`, or with the series, such as `605`, to take its newest release. The same script runs locally:
 
 ```sh
-scripts/bump.sh 6.5
+scripts/bump.sh 605
 ```
 
-It resolves the `swift:6.5-trixie` image digest, picks the newest `605.x.y` swift-format release, checksums its tarball, and rewrites the Dockerfile. It stops with a message if Docker Hub or swift-format hasn't released for that version yet. The workflow opens a pull request with the result; locally, commit it yourself.
+It resolves the `swift:6.5-trixie` image digest, picks the swift-format release, checksums its tarball, and rewrites the Dockerfile. It stops with a message if Docker Hub or swift-format hasn't released for that version yet. The workflow opens a pull request with the result; locally, commit it yourself.
 
-Merging runs the Build workflow, which pushes the new image tags, writes the new digest into `action.yml`, and tags that commit `v6.5`. Consumers pick it up through Dependabot, or by moving their `uses:` line to the tag's commit.
+Merging runs the Build workflow, which pushes the new image tag, writes the new digest into `action.yml`, and publishes release `605.0.0` from that commit. Consumers pick it up through Dependabot, or by moving their `uses:` line to the new tag.
 
-Dependabot refreshes the digests of both `FROM` lines when their tags move, which picks up base image updates for the current Swift release, and keeps the workflow actions current. Those rebuilds update `action.yml` on main but don't move a release tag, so consumers pinned to a tag keep the image they have until the next Swift release.
+Dependabot refreshes the digests of both `FROM` lines when their tags move, which picks up base image updates for the current swift-format release, and keeps the workflow actions current. Those rebuilds update `action.yml` on main but don't publish a release, so consumers pinned to a tag keep the image they have until the next swift-format release.

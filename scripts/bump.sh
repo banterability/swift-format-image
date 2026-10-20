@@ -1,20 +1,30 @@
 #!/bin/sh
-# Rewrites the Dockerfile for a Swift release: the swift build image's digest,
-# the matching swift-format release, and that release's tarball checksum.
+# Rewrites the Dockerfile for a swift-format release: its tarball checksum and
+# the digest of the Swift build image it ships with.
 #
-#   scripts/bump.sh 6.5            # newest swift-format 605.x.y release
-#   scripts/bump.sh 6.5 605.0.0    # a specific release
+#   scripts/bump.sh 605            # newest 605.x.y release
+#   scripts/bump.sh 605.0.0        # a specific release
 #
 # Needs curl, jq, and shasum. Edits the Dockerfile in place and leaves the
-# commit to you, or to the Bump Swift workflow.
+# commit to you, or to the Bump swift-format workflow.
 set -eu
 
-swift_version=${1:?usage: $0 <swift version, e.g. 6.5> [swift-format version]}
-if ! printf '%s' "$swift_version" | grep -Eq '^[0-9]+\.[0-9]+$'; then
-  echo "expected a major.minor Swift version, got '$swift_version'" >&2
+requested=${1:?usage: $0 <swift-format version, e.g. 605 or 605.0.0>}
+if printf '%s' "$requested" | grep -Eq '^[0-9]+$'; then
+  series=$requested
+  format_version=
+elif printf '%s' "$requested" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+  series=${requested%%.*}
+  format_version=$requested
+else
+  echo "expected a swift-format series like 605 or release like 605.0.0, got '$requested'" >&2
   exit 1
 fi
 cd "$(dirname "$0")/.."
+
+# swift-format numbers its releases after the Swift release they ship with:
+# 604.x.y for Swift 6.4, 510.x.y for Swift 5.10.
+swift_version="$(( series / 100 )).$(( series % 100 ))"
 
 # Docker's official image. The index digest covers every platform, which is
 # the form `docker build` resolves for the current one.
@@ -28,12 +38,7 @@ if ! headers=$(curl -fsSI -H "Authorization: Bearer $token" \
 fi
 image_digest=$(printf '%s' "$headers" | tr -d '\r' | awk 'tolower($1) == "docker-content-digest:" { print $2 }')
 
-# swift-format numbers its releases after the Swift release they ship with:
-# 604.x.y for Swift 6.4.
-series=$(( ${swift_version%%.*} * 100 + ${swift_version#*.} ))
-if [ $# -ge 2 ]; then
-  format_version=$2
-else
+if [ -z "$format_version" ]; then
   format_version=$(curl -fsS 'https://api.github.com/repos/swiftlang/swift-format/releases?per_page=100' \
     | jq -r '.[] | select(.prerelease | not) | .tag_name' \
     | grep -E "^$series\.[0-9]+\.[0-9]+$" | sort -V | tail -1)

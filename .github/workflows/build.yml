@@ -30,23 +30,19 @@ jobs:
       - run: echo "$GITHUB_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
         env:
           GITHUB_TOKEN: ${{ github.token }}
-      - run: docker build --progress plain --tag "$IMAGE:$SWIFT" --tag "$IMAGE:$SWIFT_FORMAT" .
+      - run: docker build --progress plain --tag "$IMAGE:$SWIFT_FORMAT" .
         env:
-          SWIFT: ${{ steps.versions.outputs.swift }}
           SWIFT_FORMAT: ${{ steps.versions.outputs.swift_format }}
-      - run: test "$(docker run --rm "$IMAGE:$SWIFT" --version)" = "$SWIFT_FORMAT"
+      - run: test "$(docker run --rm "$IMAGE:$SWIFT_FORMAT" --version)" = "$SWIFT_FORMAT"
         env:
-          SWIFT: ${{ steps.versions.outputs.swift }}
           SWIFT_FORMAT: ${{ steps.versions.outputs.swift_format }}
       - id: push
         run: |
-          docker push "$IMAGE:$SWIFT_FORMAT"
-          docker push "$IMAGE:$SWIFT" | tee push.log
+          docker push "$IMAGE:$SWIFT_FORMAT" | tee push.log
           digest=$(sed -n 's/.*digest: \(sha256:[0-9a-f]*\).*/\1/p' push.log)
           echo "digest=$digest" | tee -a "$GITHUB_OUTPUT"
-          printf 'Pin consumers to\n\n    %s:%s@%s\n' "$IMAGE" "$SWIFT" "$digest" >> "$GITHUB_STEP_SUMMARY"
+          printf 'Pin consumers to\n\n    %s:%s@%s\n' "$IMAGE" "$SWIFT_FORMAT" "$digest" >> "$GITHUB_STEP_SUMMARY"
         env:
-          SWIFT: ${{ steps.versions.outputs.swift }}
           SWIFT_FORMAT: ${{ steps.versions.outputs.swift_format }}
       - uses: actions/attest-build-provenance@v4
         with:
@@ -61,11 +57,12 @@ jobs:
             git commit --all --message "Pin the action to the swift-format $SWIFT_FORMAT image" --message "$IMAGE@$DIGEST"
             git push
           fi
-          if ! git ls-remote --exit-code --tags origin "refs/tags/v$SWIFT" > /dev/null; then
-            git tag "v$SWIFT"
-            git push origin "v$SWIFT"
+          if ! git ls-remote --exit-code --tags origin "refs/tags/$SWIFT_FORMAT" > /dev/null; then
+            gh release create "$SWIFT_FORMAT" --target "$(git rev-parse HEAD)" --title "swift-format $SWIFT_FORMAT" \
+              --notes "$(printf 'Built with Swift %s.\n\n    %s@%s' "$SWIFT" "$IMAGE" "$DIGEST")"
           fi
         env:
           SWIFT: ${{ steps.versions.outputs.swift }}
           SWIFT_FORMAT: ${{ steps.versions.outputs.swift_format }}
           DIGEST: ${{ steps.push.outputs.digest }}
+          GH_TOKEN: ${{ github.token }}

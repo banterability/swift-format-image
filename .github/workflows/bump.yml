@@ -1,14 +1,11 @@
-name: Bump Swift
+name: Bump swift-format
 
 on:
   workflow_dispatch:
     inputs:
-      swift_version:
-        description: Swift release to build swift-format for, e.g. 6.5
-        required: true
       swift_format_version:
-        description: swift-format release, if not the newest in that series
-        required: false
+        description: swift-format release to build, e.g. 605 for the newest 605.x.y or 605.0.0 for that one
+        required: true
 
 permissions:
   contents: write
@@ -19,17 +16,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - run: scripts/bump.sh "$SWIFT_VERSION" $SWIFT_FORMAT_VERSION
+      - run: scripts/bump.sh "$SWIFT_FORMAT_VERSION"
         env:
-          SWIFT_VERSION: ${{ inputs.swift_version }}
           SWIFT_FORMAT_VERSION: ${{ inputs.swift_format_version }}
       - run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git switch --create "bump-swift-$SWIFT_VERSION"
-          git commit --all --message "Build swift-format for Swift $SWIFT_VERSION"
-          git push --set-upstream origin "bump-swift-$SWIFT_VERSION"
-          gh pr create --fill --body "Merging runs the Build workflow, whose job summary has the new line to pin consumers to."
+          git switch --create "bump-swift-format-$SWIFT_FORMAT_VERSION"
+          git commit --all --message "Build swift-format $SWIFT_FORMAT_VERSION"
+          git push --set-upstream origin "bump-swift-format-$SWIFT_FORMAT_VERSION"
+          gh pr create --fill --body "Merging runs the Build workflow, which publishes the release."
         env:
-          SWIFT_VERSION: ${{ inputs.swift_version }}
+          SWIFT_FORMAT_VERSION: ${{ inputs.swift_format_version }}
           GH_TOKEN: ${{ github.token }}
