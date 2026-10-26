@@ -1,4 +1,4 @@
-FROM swift:6.4-trixie@sha256:63460800329ced941108d25eeecdd57b14d0df5148df6d2192ebcbfbe1245a21 AS build
+FROM swift:6.4-trixie@sha256:102021d352b590618c836aad19cb0c6eab1546d9d0f9be8886aa529ceb0919b3 AS build
 
 ARG VERSION=604.0.0
 WORKDIR /swift-format
